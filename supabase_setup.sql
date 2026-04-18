@@ -27,7 +27,6 @@ create table public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   updated_at timestamp with time zone default now(),
   username text unique,
-  uid text unique, -- Added UID column for students
   full_name text,
   avatar_url text,
   student_uid text,
@@ -64,6 +63,7 @@ create table public.approvals (
 create table public.documents (
   id uuid not null default uuid_generate_v4() primary key,
   student_id uuid references public.profiles(id) on delete cascade not null,
+  student_uid text, -- 10-digit text ID automatically populated via trigger
   application_id uuid references public.applications(id) on delete set null,
   file_url text not null,
   file_name text not null,
@@ -123,6 +123,19 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Trigger: Automatically stamp 10-digit student_uid onto new documents
+create or replace function public.set_document_student_uid()
+returns trigger as $$
+begin
+  NEW.student_uid := (select student_uid from public.profiles where id = NEW.student_id);
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_document_created
+  before insert on public.documents
+  for each row execute procedure public.set_document_student_uid();
 
 -- Trigger: Seed approvals when application is officially submitted
 create or replace function public.seed_approvals()

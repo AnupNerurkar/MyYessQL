@@ -51,7 +51,7 @@ function App() {
           <Route path="/" element={
             !user ? (
               <LandingPage onGetStarted={openAuthModal} />
-            ) : role === 'authority' || role === 'admin' || role === 'hod' || role === 'lab' || role === 'principal' ? (
+            ) : role === 'admin' || role === 'hod' || role === 'lab' || role === 'principal' ? (
               <Navigate to="/authority/dashboard" replace />
             ) : (
               <Navigate to="/dashboard" replace />

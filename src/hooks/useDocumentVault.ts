@@ -17,7 +17,6 @@ export const useDocumentVault = () => {
 
         setStudentId(user.id);
 
-        // Try to fetch active application for linking, but don't fail if not found
         const { data: application } = await supabase
           .from('applications')
           .select('id')
@@ -31,6 +30,7 @@ export const useDocumentVault = () => {
         await fetchDocuments(user.id);
       } catch (err: any) {
         setError(err.message || 'Failed to initialize document vault');
+      } finally {
         setIsLoading(false);
       }
     };

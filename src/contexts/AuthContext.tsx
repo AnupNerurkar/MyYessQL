@@ -61,22 +61,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 2. If profile is missing (PGRST116 code), create it automatically
       // This happens after a database reset for existing Auth users
-      if (error && error.code === 'PGRST116') {
+      if (error && (error.code === 'PGRST116' || error.message.includes('No rows'))) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: newProfile, error: createError } = await supabase
             .from('profiles')
-            .insert({
+            .upsert({
               id: userId,
               full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-              role: user.user_metadata?.role || 'student'
-            })
+              role: user.user_metadata?.role || 'student',
+              student_uid: user.user_metadata?.student_uid || null
+            }, { onConflict: 'id' })
             .select('role')
             .single();
 
-          if (!createError) {
+          if (!createError && newProfile) {
             setRole(newProfile.role as UserRole);
             return;
+          } else {
+            console.error('Failed to auto-heal profile:', createError);
           }
         }
       }
