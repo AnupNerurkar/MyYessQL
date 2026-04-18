@@ -30,9 +30,11 @@ create table public.profiles (
   uid text unique, -- Added UID column for students
   full_name text,
   avatar_url text,
+  student_uid text,
   role text default 'student' check (role in ('student', 'lab', 'hod', 'principal', 'admin')),
-  department text, -- Scopes lab and hod to a department
-  constraint username_length check (char_length(username) >= 3)
+
+  constraint username_length check (char_length(username) >= 3),
+  constraint student_uid_length check (student_uid is null or char_length(student_uid) = 10)
 );
 
 -- Applications Table
@@ -107,12 +109,12 @@ $$ language plpgsql security definer;
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role, uid)
+  insert into public.profiles (id, full_name, role, student_uid)
   values (
     new.id, 
     new.raw_user_meta_data->>'full_name', 
     coalesce(new.raw_user_meta_data->>'role', 'student'),
-    new.raw_user_meta_data->>'uid'
+    new.raw_user_meta_data->>'student_uid'
   );
   return new;
 end;

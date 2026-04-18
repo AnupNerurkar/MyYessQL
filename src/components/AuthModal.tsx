@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -14,9 +14,21 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [uid, setUid] = useState('');
+  const [studentUid, setStudentUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   const handleAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,7 +50,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             data: {
               full_name: fullName,
               role: userType,
-              uid: userType === 'student' ? uid : undefined,
+              student_uid: userType === 'student' ? studentUid : null,
             },
           },
         });
@@ -118,30 +130,31 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                   >
                     <div className="signup-grid">
                       {!isLogin && (
-                        <>
-                          <div className="input-group wide">
-                            <label className="label">Full Legal Name</label>
-                            <input 
-                              type="text" 
-                              placeholder="Johnathan Doe" 
-                              required 
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                            />
-                          </div>
-                          {userType === 'student' && (
-                            <div className="input-group wide">
-                              <label className="label">University Record ID (UID)</label>
-                              <input 
-                                type="text" 
-                                placeholder="ex. U21CS099" 
-                                required 
-                                value={uid}
-                                onChange={(e) => setUid(e.target.value)}
-                              />
-                            </div>
-                          )}
-                        </>
+                        <div className="input-group wide">
+                          <label className="label">Full Legal Name</label>
+                          <input 
+                            type="text" 
+                            placeholder="Johnathan Doe" 
+                            required 
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {!isLogin && userType === 'student' && (
+                        <div className="input-group wide">
+                          <label className="label">Student UID (10 digits)</label>
+                          <input 
+                            type="text" 
+                            placeholder="1234567890" 
+                            required 
+                            pattern="\d{10}"
+                            title="Please enter a 10-digit UID"
+                            value={studentUid}
+                            onChange={(e) => setStudentUid(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          />
+                        </div>
                       )}
 
                       <div className="input-group wide">
