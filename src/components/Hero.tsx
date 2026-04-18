@@ -23,7 +23,7 @@ const Hero = ({ isAuthenticated }: { isAuthenticated?: boolean }) => {
           {!isAuthenticated && (
             <div className="hero-btns">
               <button className="btn-primary">Establish Connection</button>
-              <button className="btn-secondary">Authority Entry</button>
+              <button className="btn-secondary">Authority Login</button>
             </div>
           )}
         </motion.div>

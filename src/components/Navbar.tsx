@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationPanel from './NotificationPanel';
@@ -14,7 +14,6 @@ const Navbar: React.FC<NavbarProps> = ({
   onRegisterClick 
 }) => {
   const { user, role, signOut } = useAuth();
-  const navigate = useNavigate();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -32,9 +31,9 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="nav-links">
           {!user ? (
             <>
-              <button onClick={onLoginClick} className="label">Log In</button>
-              <button onClick={onRegisterClick} className="label">Register</button>
-              <button onClick={onLoginClick} className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.6rem', marginLeft: '20px' }}>Portal Access</button>
+              <button onClick={onLoginClick} className="label">Student Login</button>
+              <button onClick={onRegisterClick} className="label">Student Register</button>
+              <Link to="/authority/login" className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.6rem', marginLeft: '20px', textDecoration: 'none' }}>Staff Access</Link>
             </>
           ) : (
             <div className="nav-identity">

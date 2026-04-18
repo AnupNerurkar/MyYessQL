@@ -12,9 +12,10 @@ import AuthoritySignup from './components/AuthoritySignup';
 import AuthorityLogin from './components/AuthorityLogin';
 import AuthorityDashboard from './components/AuthorityDashboard';
 import AuthorityRoute from './components/AuthorityRoute';
+import StudentApplicationPage from './components/StudentApplicationPage';
 
 function App() {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   const location = useLocation();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -50,14 +51,24 @@ function App() {
           <Route path="/" element={
             !user ? (
               <LandingPage onGetStarted={openAuthModal} />
-            ) : (
+            ) : !role ? (
+              <div className="loading-screen"><div className="loader"></div></div>
+            ) : role === 'student' ? (
               <Navigate to="/dashboard" replace />
+            ) : (
+              <Navigate to="/authority/dashboard" replace />
             )
           } />
           
           <Route path="/dashboard" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['student']}>
               <StudentDashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/student/application" element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentApplicationPage />
             </ProtectedRoute>
           } />
 

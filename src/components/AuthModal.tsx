@@ -14,6 +14,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [uid, setUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +38,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             data: {
               full_name: fullName,
               role: userType,
+              uid: userType === 'student' ? uid : undefined,
             },
           },
         });
@@ -80,7 +82,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
               </button>
 
               <div className="login-header">
-                <span className="label" style={{ color: 'var(--accent-color)' }}>Nexus Entry</span>
+                <span className="label" style={{ color: 'var(--accent-color)' }}>Nexus Login</span>
                 <h1 className="serif title">{isLogin ? 'Establish Connection' : 'Register Identity'}</h1>
               </div>
 
@@ -89,53 +91,15 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                   className={`switch-btn ${isLogin ? 'active' : ''}`}
                   onClick={() => setIsLogin(true)}
                 >
-                  Entry
+                  Login
                 </button>
                 <button 
                   className={`switch-btn ${!isLogin ? 'active' : ''}`}
                   onClick={() => setIsLogin(false)}
                 >
-                  Inscription
+                  Sign Up
                 </button>
               </div>
-
-              <div className="auth-type-toggle">
-                <button 
-                  className={`type-btn ${userType === 'student' ? 'active' : ''}`}
-                  onClick={() => setUserType('student')}
-                >
-                  Student
-                </button>
-                <button 
-                  className={`type-btn ${userType !== 'student' ? 'active' : ''}`}
-                  onClick={() => setUserType('admin')}
-                >
-                  Authority
-                </button>
-              </div>
-
-              {!isLogin && userType !== 'student' && (
-                <div className="input-group wide" style={{ marginBottom: '1.5rem' }}>
-                  <label className="label">Authority Type</label>
-                  <select 
-                    value={userType} 
-                    onChange={(e) => setUserType(e.target.value as any)}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      background: 'var(--surface-color)', 
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-primary)',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    <option value="admin">System Admin</option>
-                    <option value="lab">Lab Authority</option>
-                    <option value="hod">HOD</option>
-                    <option value="principal">Principal</option>
-                  </select>
-                </div>
-              )}
 
               {error && (
                 <div style={{ color: '#ff4444', marginBottom: '1rem', textAlign: 'center', fontSize: '0.9rem' }}>
@@ -154,16 +118,30 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                   >
                     <div className="signup-grid">
                       {!isLogin && (
-                        <div className="input-group wide">
-                          <label className="label">Full Legal Name</label>
-                          <input 
-                            type="text" 
-                            placeholder="Johnathan Doe" 
-                            required 
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                          />
-                        </div>
+                        <>
+                          <div className="input-group wide">
+                            <label className="label">Full Legal Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="Johnathan Doe" 
+                              required 
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                            />
+                          </div>
+                          {userType === 'student' && (
+                            <div className="input-group wide">
+                              <label className="label">University Record ID (UID)</label>
+                              <input 
+                                type="text" 
+                                placeholder="ex. U21CS099" 
+                                required 
+                                value={uid}
+                                onChange={(e) => setUid(e.target.value)}
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
 
                       <div className="input-group wide">
@@ -196,7 +174,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                       <p>
                         {isLogin ? "New to the network?" : "Already verified?"} 
                         <span onClick={() => setIsLogin(!isLogin)} style={{ cursor: 'pointer', color: 'var(--accent-color)' }}>
-                          {isLogin ? " Request Inscription" : " Establish Connection"}
+                          {isLogin ? " Sign Up" : " Establish Connection"}
                         </span>
                       </p>
                     </div>

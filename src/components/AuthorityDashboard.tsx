@@ -1,6 +1,9 @@
 import React from 'react';
 import { useAuthority } from '../hooks/useAuthority';
 import { useNavigate } from 'react-router-dom';
+import LabDashboardPanel from './LabDashboardPanel';
+import HodDashboardPanel from './HodDashboardPanel';
+import PrincipalDashboardPanel from './PrincipalDashboardPanel';
 
 const AuthorityDashboard: React.FC = () => {
   const { profile, signOut } = useAuthority();
@@ -23,7 +26,9 @@ const AuthorityDashboard: React.FC = () => {
 
   const renderSidebarLinks = () => {
     const role = profile?.role;
-    const links = {
+    if (!role) return null;
+
+    const links: Record<string, { label: string; active: boolean }[]> = {
       lab: [
         { label: 'Pending Applications', active: true },
         { label: 'Cleared Students', active: false },
@@ -48,10 +53,12 @@ const AuthorityDashboard: React.FC = () => {
         { label: 'Cleared Students', active: false },
         { label: 'System Logs', active: false }
       ],
-    }[role as keyof typeof links] || [];
+    };
 
-    return links.map((link, i) => (
-      <div key={i} className={`nav-item ${link.active ? 'active' : ''}`}>
+    const roleLinks = links[role as string] || [];
+
+    return roleLinks.map((link: { label: string; active: boolean }, i: number) => (
+      <div key={i} className={`nav-item \${link.active ? 'active' : ''}`}>
         {link.label}
       </div>
     ));
@@ -61,44 +68,39 @@ const AuthorityDashboard: React.FC = () => {
     const role = profile?.role;
     if (!role) return null;
 
-    const config = {
+    const config: Record<string, { 
+      title: string; 
+      subtext: string; 
+      theme: string; 
+      stats?: { label: string; val: string }[]; 
+      component?: React.ReactNode; 
+      placeholder?: string;
+    }> = {
       lab: {
         title: 'Lab Assistant Dashboard',
         subtext: 'Engineering Labs & Research Facilities Access Control',
-        theme: '#00D1FF', // Cyan
-        stats: [
-          { label: 'Pending Clearances', val: '12' },
-          { label: 'Approved Today', val: '45' },
-          { label: 'Flagged Equipments', val: '3' }
-        ],
-        placeholder: 'Review and verify laboratory-specific dues and equipment returns for students in the clearance pipeline.'
+        theme: '#00D1FF',
+        stats: [],
+        component: <LabDashboardPanel />
       },
       hod: {
         title: 'HOD Dashboard',
         subtext: 'Departmental Oversight & Senior Approvals',
-        theme: '#A855F7', // Purple
-        stats: [
-          { label: 'Awaiting Sign-off', val: '08' },
-          { label: 'Total Approved', val: '124' },
-          { label: 'Dues Flagged', val: '2' }
-        ],
-        placeholder: 'Secondary validation of student eligibility and departmental compliance records.'
+        theme: '#A855F7',
+        stats: [],
+        component: <HodDashboardPanel />
       },
       principal: {
         title: "Principal's Dashboard",
         subtext: 'Apex Authority & Certification Control',
-        theme: '#F59E0B', // Amber/Gold
-        stats: [
-          { label: 'Final Queue', val: '05' },
-          { label: 'Certificates Pending', val: '18' },
-          { label: 'Rejections', val: '1' }
-        ],
-        placeholder: 'Final executive oversight for the entire clearance process and batch certificate generation.'
+        theme: '#F59E0B',
+        stats: [],
+        component: <PrincipalDashboardPanel />
       },
       admin: {
         title: 'Librarian Dashboard',
         subtext: 'Library Resource & Central Dues Registry',
-        theme: '#10B981', // Emerald
+        theme: '#10B981',
         stats: [
           { label: 'Outstanding Dues', val: '56' },
           { label: 'Cleared Records', val: '512' },
@@ -106,42 +108,48 @@ const AuthorityDashboard: React.FC = () => {
         ],
         placeholder: 'Manage student library accounts, book returns, and mass-import dues data via institutional CSV files.'
       }
-    }[role as keyof typeof config];
+    };
 
-    if (!config) return null;
+    const roleConfig = config[role as string];
+
+    if (!roleConfig) return null;
 
     return (
-      <div className="panel-container" style={{ '--role-accent': config.theme } as React.CSSProperties}>
+      <div className="panel-container" style={{ '--role-accent': roleConfig.theme } as any}>
         <div className="panel-header">
-          <div className="role-indicator" style={{ background: config.theme }}></div>
-          <h2 className="panel-title serif">{config.title}</h2>
-          <p className="panel-subtext">{config.subtext}</p>
+          <div className="role-indicator" style={{ background: roleConfig.theme }}></div>
+          <h2 className="panel-title serif">{roleConfig.title}</h2>
+          <p className="panel-subtext">{roleConfig.subtext}</p>
         </div>
 
-        <div className="stats-grid">
-          {config.stats.map((stat, i) => (
-            <div key={i} className="stat-card">
-              <div className="stat-label label">{stat.label}</div>
-              <div className="stat-value" style={{ color: config.theme }}>{stat.val}</div>
-              <div className="stat-decoration"></div>
-            </div>
-          ))}
-        </div>
-
-        <div className="focus-area">
-          <div className="focus-header">
-            <h3 className="serif">Operational Focus</h3>
-            <div className="action-pill" style={{ borderColor: config.theme, color: config.theme }}>Active Session</div>
-          </div>
-          <div className="focus-card">
-            <p className="focus-text">{config.placeholder}</p>
-            <div className="skeleton-list">
-              {[1, 2, 3].map(n => (
-                <div key={n} className="skeleton-row"></div>
+        {roleConfig.component ? roleConfig.component : (
+          <>
+            <div className="stats-grid">
+              {roleConfig.stats?.map((stat: { label: string; val: string }, i: number) => (
+                <div key={i} className="stat-card">
+                  <div className="stat-label label">{stat.label}</div>
+                  <div className="stat-value" style={{ color: roleConfig.theme }}>{stat.val}</div>
+                  <div className="stat-decoration"></div>
+                </div>
               ))}
             </div>
-          </div>
-        </div>
+
+            <div className="focus-area">
+              <div className="focus-header">
+                <h3 className="serif">Operational Focus</h3>
+                <div className="action-pill" style={{ borderColor: roleConfig.theme, color: roleConfig.theme }}>Active Session</div>
+              </div>
+              <div className="focus-card">
+                <p className="focus-text">{roleConfig.placeholder || ''}</p>
+                <div className="skeleton-list">
+                  {[1, 2, 3].map((n: number) => (
+                    <div key={n} className="skeleton-row"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   };

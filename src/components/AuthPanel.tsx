@@ -10,7 +10,7 @@ const AuthPanel = () => {
         <div className="auth-grid">
           <div className="auth-description">
             <span className="label" style={{ color: 'var(--accent-color)' }}>Access Rights</span>
-            <h2 className="serif title">Sovereign<br/>Entry</h2>
+            <h2 className="serif title">Sovereign<br/>Login</h2>
             <p className="desc">
               Connect your decentralized academic identity to the Nexus network. 
               Authenticity verified by the university ledger.
@@ -51,7 +51,7 @@ const AuthPanel = () => {
                   <input type="password" placeholder="••••••••" />
                 </div>
                 <button className="btn-primary full-width">
-                  {activeTab === 'student' ? 'Establish Connection' : 'Administrative Entry'}
+                  {activeTab === 'student' ? 'Establish Connection' : 'Administrative Login'}
                 </button>
               </motion.div>
             </AnimatePresence>

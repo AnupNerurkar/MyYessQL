@@ -27,7 +27,7 @@ const AuthorityRoute: React.FC<AuthorityRouteProps> = ({ children }) => {
     return <Navigate to="/authority/login" replace />;
   }
 
-  if (profile?.role === 'student') {
+  if ((profile?.role as string) === 'student') {
     return <Navigate to="/" replace />;
   }
 

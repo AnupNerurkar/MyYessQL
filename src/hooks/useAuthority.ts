@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { AuthorityProfile } from '../types/authority';
+import type { AuthorityProfile, AuthorityRole } from '../types/authority';
 
 export const useAuthority = () => {
   const [user, setUser] = useState<User | null>(null);

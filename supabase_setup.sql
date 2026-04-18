@@ -1,15 +1,37 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
--- Create a table for public profiles (Unified User Table)
+-- ============================================================================
+-- 1. CLEANUP (Drop existing tables, triggers, and functions)
+-- ============================================================================
+drop policy if exists "Authorities can view all applications." on public.applications;
+drop table if exists public.documents cascade;
+drop table if exists public.approvals cascade;
+drop table if exists public.applications cascade;
+drop table if exists public.dues cascade;
+drop table if exists public.profiles cascade;
+
+drop function if exists public.handle_new_user cascade;
+drop function if exists public.is_authority cascade;
+drop function if exists public.seed_approvals cascade;
+drop function if exists public.advance_application_stage cascade;
+drop function if exists public.is_lab_for_department cascade;
+drop function if exists public.is_hod_for_department cascade;
+
+-- ============================================================================
+-- 2. CORE TABLES CREATION
+-- ============================================================================
+
+-- Profiles Table (Unified User Table including student UID)
 create table public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   updated_at timestamp with time zone default now(),
   username text unique,
+  uid text unique, -- Added UID column for students
   full_name text,
   avatar_url text,
   role text default 'student' check (role in ('student', 'lab', 'hod', 'principal', 'admin')),
-
+  department text, -- Scopes lab and hod to a department
   constraint username_length check (char_length(username) >= 3)
 );
 
@@ -19,6 +41,9 @@ create table public.applications (
   student_id uuid references public.profiles(id) on delete cascade,
   status text default 'lab_pending' check (status in ('lab_pending', 'hod_pending', 'principal_pending', 'approved', 'rejected')),
   current_stage text default 'lab',
+  department text,
+  document_ids uuid[] default '{}',
+  is_submitted boolean default false,
   created_at timestamp with time zone default now()
 );
 
@@ -29,10 +54,11 @@ create table public.approvals (
   role text check (role in ('lab', 'hod', 'principal')),
   status text default 'pending' check (status in ('pending', 'approved', 'rejected')),
   comment text,
+  actor_id uuid references public.profiles(id) on delete set null,
   updated_at timestamp with time zone default now()
 );
 
--- Documents Table (Revised: Application-Independent)
+-- Documents Table (Application-Independent vault)
 create table public.documents (
   id uuid not null default uuid_generate_v4() primary key,
   student_id uuid references public.profiles(id) on delete cascade not null,
@@ -52,14 +78,20 @@ create table public.dues (
   status text default 'pending' check (status in ('pending', 'paid'))
 );
 
--- Set up Row Level Security (RLS)
+-- ============================================================================
+-- 3. ENABLE ROW LEVEL SECURITY
+-- ============================================================================
 alter table public.profiles enable row level security;
 alter table public.applications enable row level security;
 alter table public.approvals enable row level security;
 alter table public.documents enable row level security;
 alter table public.dues enable row level security;
 
--- [HELPER] Authority Role Check
+-- ============================================================================
+-- 4. DATABASE FUNCTIONS AND TRIGGERS
+-- ============================================================================
+
+-- Helper: Authority Check
 create or replace function public.is_authority()
 returns boolean as $$
 begin
@@ -71,39 +103,146 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- RLS Policies for Profiles
-create policy "Public profiles are viewable by everyone." on profiles for select using (true);
-create policy "Users can update own profiles." on profiles for update using (auth.uid() = id);
-
--- RLS Policies for Applications
-create policy "Students can view their own applications." on applications for select using (auth.uid() = student_id);
-create policy "Authorities can view all applications." on applications for select using (public.is_authority());
-create policy "Students can create applications." on applications for insert with check (auth.uid() = student_id);
-
--- This trigger automatically creates a profile entry when a new user signs up via Supabase Auth.
+-- Trigger: Auto create profile on auth signup
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', coalesce(new.raw_user_meta_data->>'role', 'student'));
+  insert into public.profiles (id, full_name, role, uid)
+  values (
+    new.id, 
+    new.raw_user_meta_data->>'full_name', 
+    coalesce(new.raw_user_meta_data->>'role', 'student'),
+    new.raw_user_meta_data->>'uid'
+  );
   return new;
 end;
 $$ language plpgsql security definer;
 
-create or replace trigger on_auth_user_created
+create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- --- DOCUMENT VAULT STORAGE SETUP ---
+-- Trigger: Seed approvals when application is officially submitted
+create or replace function public.seed_approvals()
+returns trigger as $$
+begin
+  if NEW.is_submitted = true and OLD.is_submitted = false then
+    insert into public.approvals (application_id, role, status)
+    values
+      (NEW.id, 'lab', 'pending'),
+      (NEW.id, 'hod', 'pending'),
+      (NEW.id, 'principal', 'pending');
+  end if;
+  return NEW;
+end;
+$$ language plpgsql security definer;
 
--- 1. Create storage bucket
+create trigger on_application_submitted
+  after update on public.applications
+  for each row execute procedure public.seed_approvals();
+
+-- Trigger: Auto-advance workflow stage based on approval decisions
+create or replace function public.advance_application_stage()
+returns trigger as $$
+begin
+  if NEW.status = 'approved' and OLD.status = 'pending' then
+    if NEW.role = 'lab' then
+      update public.applications
+      set status = 'hod_pending', current_stage = 'hod'
+      where id = NEW.application_id;
+    elsif NEW.role = 'hod' then
+      update public.applications
+      set status = 'principal_pending', current_stage = 'principal'
+      where id = NEW.application_id;
+    elsif NEW.role = 'principal' then
+      update public.applications
+      set status = 'approved', current_stage = 'done'
+      where id = NEW.application_id;
+    end if;
+  end if;
+
+  if NEW.status = 'rejected' and OLD.status = 'pending' then
+    update public.applications
+    set status = 'rejected', current_stage = NEW.role
+    where id = NEW.application_id;
+  end if;
+
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_approval_action
+  after update on public.approvals
+  for each row execute procedure public.advance_application_stage();
+
+-- ============================================================================
+-- 5. ROW LEVEL SECURITY (RLS) POLICIES
+-- ============================================================================
+
+-- RLS: Profiles
+create policy "Public profiles are viewable by everyone." on profiles for select using (true);
+create policy "Users can update own profiles." on profiles for update using (auth.uid() = id);
+create policy "Users can create own profiles." on profiles for insert with check (auth.uid() = id);
+
+-- RLS: Applications (Carefully Scoped)
+create policy "Students can view their own applications." on applications for select using (auth.uid() = student_id);
+create policy "Students can create applications." on applications for insert with check (auth.uid() = student_id);
+create policy "Students can update own draft applications." on applications for update using (auth.uid() = student_id and is_submitted = false);
+
+create policy "Lab sees own department applications" on applications for select
+using (
+  department = (select department from public.profiles where id = auth.uid())
+  and (select role from public.profiles where id = auth.uid()) = 'lab'
+  and is_submitted = true
+);
+
+create policy "HOD sees own department applications" on applications for select
+using (
+  department = (select department from public.profiles where id = auth.uid())
+  and (select role from public.profiles where id = auth.uid()) = 'hod'
+  and is_submitted = true
+);
+
+create policy "Principal sees all applications" on applications for select
+using (
+  (select role from public.profiles where id = auth.uid()) = 'principal'
+  and is_submitted = true
+);
+
+create policy "Admin sees all submitted applications" on applications for select
+using (
+  (select role from public.profiles where id = auth.uid()) = 'admin'
+  and is_submitted = true
+);
+
+-- RLS: Approvals
+create policy "Authorities update own role approvals only" on approvals for update
+using (
+  role = (select role from public.profiles where id = auth.uid())
+  and (select role from public.profiles where id = auth.uid()) in ('lab', 'hod', 'principal')
+);
+
+create policy "Authorities read approvals" on approvals for select
+using (public.is_authority());
+
+create policy "Students read own approvals" on approvals for select
+using (
+  exists (
+    select 1 from public.applications
+    where applications.id = application_id
+    and applications.student_id = auth.uid()
+  )
+);
+
+-- ============================================================================
+-- 6. DOCUMENT VAULT STORAGE SETUP
+-- ============================================================================
 insert into storage.buckets (id, name, public)
 values ('documents', 'documents', true)
 on conflict (id) do nothing;
 
--- 2. Storage RLS Policies
-create policy "Owners and authorities read docs"
-on storage.objects for select
+drop policy if exists "Owners and authorities read docs" on storage.objects;
+create policy "Owners and authorities read docs" on storage.objects for select
 using (
   bucket_id = 'documents' AND (
     auth.uid()::text = (storage.foldername(name))[1]
@@ -111,40 +250,28 @@ using (
   )
 );
 
-create policy "Students upload own docs"
-on storage.objects for insert
+drop policy if exists "Students upload own docs" on storage.objects;
+create policy "Students upload own docs" on storage.objects for insert
 with check (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
 
-create policy "Only students delete own docs"
-on storage.objects for delete
+drop policy if exists "Only students delete own docs" on storage.objects;
+create policy "Only students delete own docs" on storage.objects for delete
 using (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
 
--- 3. Table RLS Policies for documents table
-create policy "Students and authorities can view documents."
-on documents for select
-using (
-  auth.uid() = student_id 
-  OR public.is_authority()
-);
+-- Table docs RLS
+create policy "Students and authorities can view documents." on documents for select
+using (auth.uid() = student_id OR public.is_authority());
 
-create policy "Students can insert their own docs."
-on documents for insert
+create policy "Students can insert their own docs." on documents for insert
 with check (auth.uid() = student_id);
 
-create policy "Only students can delete their own docs."
-on documents for delete
+create policy "Only students can delete their own docs." on documents for delete
 using (auth.uid() = student_id);
 
--- --- FIX: PERMISSION DENIED FOR SCHEMA PUBLIC ---
--- These grants ensure that the authenticated role (and anon) can actually use the public schema.
--- RLS still protects the data within the tables.
-
+-- ============================================================================
+-- 7. REQUIRED SCHEMA GRANTS
+-- ============================================================================
 grant usage on schema public to postgres, anon, authenticated, service_role;
-
 grant all privileges on all tables in schema public to postgres, anon, authenticated, service_role;
 grant all privileges on all functions in schema public to postgres, anon, authenticated, service_role;
 grant all privileges on all sequences in schema public to postgres, anon, authenticated, service_role;
-
-alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
-alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;

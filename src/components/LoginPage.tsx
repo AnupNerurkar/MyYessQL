@@ -36,13 +36,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             className={`switch-btn ${isLogin ? 'active' : ''}`}
             onClick={() => setIsLogin(true)}
           >
-            Entry
+            Login
           </button>
           <button 
             className={`switch-btn ${!isLogin ? 'active' : ''}`}
             onClick={() => setIsLogin(false)}
           >
-            Inscription
+            Sign Up
           </button>
         </div>
 
@@ -124,7 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 <p>
                   {isLogin ? "New to the network?" : "Already verified?"} 
                   <span onClick={() => setIsLogin(!isLogin)}>
-                    {isLogin ? " Request Inscription" : " Establish Connection"}
+                    {isLogin ? " Sign Up" : " Establish Connection"}
                   </span>
                 </p>
               </div>
