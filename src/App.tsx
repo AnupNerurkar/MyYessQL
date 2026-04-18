@@ -51,12 +51,10 @@ function App() {
           <Route path="/" element={
             !user ? (
               <LandingPage onGetStarted={openAuthModal} />
-            ) : !role ? (
-              <div className="loading-screen"><div className="loader"></div></div>
-            ) : role === 'student' ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
+            ) : role === 'authority' || role === 'admin' || role === 'hod' || role === 'lab' || role === 'principal' ? (
               <Navigate to="/authority/dashboard" replace />
+            ) : (
+              <Navigate to="/dashboard" replace />
             )
           } />
           

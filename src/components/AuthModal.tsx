@@ -10,7 +10,7 @@ interface AuthModalProps {
 
 const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [userType, setUserType] = useState<'student' | 'lab' | 'hod' | 'principal' | 'admin'>('student');
+  const [userType] = useState<'student' | 'lab' | 'hod' | 'principal' | 'admin'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
