@@ -33,7 +33,6 @@ function App() {
       <Navbar 
         onLoginClick={openAuthModal}
         onRegisterClick={openAuthModal}
-        isAuthenticated={!!user}
       />
 
       <main>

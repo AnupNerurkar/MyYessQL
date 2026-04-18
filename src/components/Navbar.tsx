@@ -13,7 +13,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onLoginClick, 
   onRegisterClick 
 }) => {
-  const { user, role, signOut, studentData } = useAuth();
+  const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 

@@ -52,11 +52,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // 1. Try to fetch the role
+      let { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', userId)
         .single();
+
+      // 2. If profile is missing (PGRST116 code), create it automatically
+      // This happens after a database reset for existing Auth users
+      if (error && error.code === 'PGRST116') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+              role: user.user_metadata?.role || 'student'
+            })
+            .select('role')
+            .single();
+
+          if (!createError) {
+            setRole(newProfile.role as UserRole);
+            return;
+          }
+        }
+      }
 
       if (error) {
         console.error('Error fetching role:', error);
